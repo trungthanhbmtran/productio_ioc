@@ -1,22 +1,25 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalDependencies": ["**/.env.*local"],
+  "globalDependencies": ["**/.env.*local", "**/.env"],
   "globalEnv": [
     "NODE_ENV",
     "NEXT_PUBLIC_API_URL",
     "DATABASE_URL",
-    "JWT_SECRET"
+    "JWT_SECRET",
+    "PORT",
+    "GRPC_URL" 
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^db:generate", "^gen:grpc"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
         "dist/**",
-        "build/**"
+        "build/**",
+        "generated/**"
       ]
     },
     "test": {
@@ -28,17 +31,24 @@
       "dependsOn": ["^build"]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["^check-types", "^db:generate", "^gen:grpc"]
     },
     "dev": {
+      "dependsOn": ["^db:generate", "^gen:grpc"],
       "cache": false,
       "persistent": true
     },
     "db:generate": {
-      "cache": false
+      "cache": false,
+      "inputs": ["prisma/schema.prisma"]
     },
     "db:push": {
       "cache": false
+    },
+    "gen:grpc": {
+      "cache": false,
+      "outputs": ["src/proto/**", "generated/**"],
+      "inputs": ["**/*.proto"]
     },
     "clean": {
       "cache": false

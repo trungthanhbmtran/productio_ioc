@@ -46,6 +46,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/${APP_NAME}/public ./apps/${
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
-HOSTNAME "0.0.0.0"
+ENV HOSTNAME "0.0.0.0"
 
 CMD ["node", "apps/${APP_NAME}/server.js"]

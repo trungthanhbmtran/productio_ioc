@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package auth; // Tên package gRPC (quan trọng)
+
+service AuthService {
+  // Hàm đăng ký
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  // Hàm đăng nhập
+  rpc Login (LoginRequest) returns (LoginResponse);
+  // Hàm kiểm tra Token (dùng cho Guard)
+  rpc Validate (ValidateRequest) returns (ValidateResponse);
+}
+
+// --- Định nghĩa dữ liệu (DTO) ---
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string fullName = 3;
+}
+
+message RegisterResponse {
+  int32 status = 1;
+  string message = 2;
+  int32 userId = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  int32 status = 1;
+  string accessToken = 2;
+  string refreshToken = 3;
+}
+
+message ValidateRequest {
+  string token = 1;
+}
+
+message ValidateResponse {
+  bool isValid = 1;
+  int32 userId = 2;
+}
