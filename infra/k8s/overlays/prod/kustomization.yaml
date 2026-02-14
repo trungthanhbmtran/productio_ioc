@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 1. Kế thừa từ Base
+resources:
+  - ../../base/apps/portal.yaml
+  - ../../base/apps/admin.yaml
+  - ../../base/services/auth-service.yaml
+  - ../../base/services/gateway.yaml
+  - ../../base/ingress.yaml
+
+# 2. Thay đổi Namespace
+namespace: production
+
+# 3. Gắn Prefix cho các resource (tránh trùng tên)
+namePrefix: prod-
+
+# 4. Thay đổi Image Tag mới nhất (CI/CD sẽ sửa dòng này tự động)
+images:
+  - name: my-org/portal
+    newTag: v1.0.5
+  - name: my-org/auth-service
+    newTag: v2.1.0
+
+# 5. Patch (Sửa đổi nhỏ) - Ví dụ tăng Replicas cho Prod
+patches:
+  - target:
+      kind: Deployment
+      name: portal
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 5

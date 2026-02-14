@@ -1,0 +1,51 @@
+# Dockerfile.web
+FROM node:18-alpine AS base
+
+# --- 1. Prune ---
+FROM base AS pruner
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+RUN npm install turbo --global
+COPY . .
+ARG APP_NAME
+# Prune giữ lại code của app (ví dụ: apps/portal)
+RUN turbo prune --scope=${APP_NAME} --docker
+
+# --- 2. Install & Build ---
+FROM base AS builder
+WORKDIR /app
+
+# Copy lockfile
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN corepack enable
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY --from=pruner /app/out/full/ .
+COPY turbo.json turbo.json
+
+ARG APP_NAME
+# Build Next.js
+RUN pnpm turbo build --filter=${APP_NAME}
+
+# --- 3. Runner ---
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+ARG APP_NAME
+# Lưu ý: Next.js standalone nằm trong thư mục apps/${APP_NAME}
+COPY --from=builder --chown=nextjs:nodejs /app/apps/${APP_NAME}/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/${APP_NAME}/.next/static ./apps/${APP_NAME}/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/${APP_NAME}/public ./apps/${APP_NAME}/public
+
+USER nextjs
+EXPOSE 3000
+ENV PORT 3000
+HOSTNAME "0.0.0.0"
+
+CMD ["node", "apps/${APP_NAME}/server.js"]

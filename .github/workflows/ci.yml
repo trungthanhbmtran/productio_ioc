@@ -1,0 +1,36 @@
+name: CI Quality Check
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  quality:
+    name: Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Chạy kiểm tra song song cho cả apps và services
+      - name: Run Turbo (Lint & Build & Test)
+        # Sử dụng filter để chỉ chạy những thứ đã thay đổi so với commit trước (HEAD^1)
+        run: pnpm turbo lint build test --filter=...[HEAD^1]

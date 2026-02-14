@@ -1,0 +1,53 @@
+name: Deploy to Production K8s
+
+on:
+  workflow_run:
+    workflows: ["Build & Push Docker Images"] # Chờ workflow build xong mới chạy
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} # Chỉ chạy nếu build thành công
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Authenticate K8s
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      # Cập nhật Image Tag mới nhất (Commit SHA của lần push này)
+      - name: Update Image Tag in Kustomize
+        working-directory: infra/k8s/overlays/prod
+        run: |
+          # Commit SHA ngắn (7 ký tự) dùng làm tag
+          SHA_TAG=${{ github.event.workflow_run.head_sha }}
+          
+          # Cập nhật Portal (Nếu code portal không đổi, Docker vẫn có tag này hoặc tag cũ, tốt nhất dùng SHA)
+          kustomize edit set image my-org/portal=my-org/portal:$SHA_TAG
+          kustomize edit set image my-org/admin=my-org/admin:$SHA_TAG
+          kustomize edit set image my-org/auth-service=my-org/auth-service:$SHA_TAG
+          kustomize edit set image my-org/gateway=my-org/gateway:$SHA_TAG
+
+      # Lệnh quan trọng nhất: Đẩy cấu hình mới lên K8s
+      - name: Apply to Cluster
+        run: |
+          kubectl apply -k infra/k8s/overlays/prod
+          
+      # Chờ rollout xong (để báo status về GitHub là xanh hay đỏ)
+      - name: Verify Deployment
+        run: |
+          kubectl rollout status deployment/portal -n production
+          kubectl rollout status deployment/auth-service -n production

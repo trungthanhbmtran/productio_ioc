@@ -1,0 +1,23 @@
+deploy-k8s:
+    runs-on: ubuntu-latest
+    needs: build-and-push # Chờ build docker xong mới chạy
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Cài đặt kubectl (hoặc dùng action azure/k8s-set-context)
+      - name: Set K8s Context
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      # Cập nhật Image Tag mới nhất vào file kustomization (Prod)
+      - name: Update Image Tag
+        working-directory: infra/k8s/overlays/prod
+        run: |
+          kustomize edit set image my-org/portal=my-org/portal:${{ github.sha }}
+          kustomize edit set image my-org/auth-service=my-org/auth-service:${{ github.sha }}
+
+      # Apply vào Cluster
+      - name: Deploy to K8s
+        run: |
+          kubectl apply -k infra/k8s/overlays/prod
